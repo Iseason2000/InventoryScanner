@@ -1,0 +1,19 @@
+# 背包检查周期，单位tick 20tick = 1秒
+check-period: 40
+
+# 当检测到玩家黑名单物品超过阈值时发送给该玩家的信息
+# 占位符 %item% 物品键值  %max% 最大阈值 %current% 当前数量
+message: ""
+
+# 警告信息
+# 占位符 %item% 物品键值  %max% 最大阈值 %current% 当前数量
+warningMessage: ""
+# 提示信息的发送间隔，单位毫秒
+warningCoolDown: 10000
+
+# 黑名单，储存需要监听的物品及数量
+# 格式，物品键值: 提醒数量/没收数量
+blacklist:
+
+# 储存物品键及对应的序列化物品
+key-map:

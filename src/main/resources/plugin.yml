@@ -1,0 +1,10 @@
+name: InventoryScanner
+version: '${version}'
+main: top.iseason.bukkit.inventoryscanner.InventoryScanner
+prefix: InventoryScanner
+authors: [ Iseason ]
+description: 扫描背包违禁物品
+commands:
+  InventoryScanner:
+    aliases:
+      - is
