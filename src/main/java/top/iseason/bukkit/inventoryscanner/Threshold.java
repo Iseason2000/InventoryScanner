@@ -4,12 +4,10 @@ package top.iseason.bukkit.inventoryscanner;
 
 import lombok.Getter;
 
+@Getter
 public class Threshold {
-    @Getter
     private final int max;
-    @Getter
     private final int warning;
-
 
     public Threshold(int warning, int max) {
         this.warning = warning;

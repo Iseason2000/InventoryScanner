@@ -1,10 +1,13 @@
 package top.iseason.bukkit.inventoryscanner;
 
-import com.tuershen.nbtlibrary.NBTLibraryMain;
+import de.tr7zw.nbtapi.NBT;
 import lombok.Getter;
 import lombok.Setter;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import java.io.IOException;
 
 
 public final class InventoryScanner extends JavaPlugin {
@@ -20,8 +23,12 @@ public final class InventoryScanner extends JavaPlugin {
         instance = this;
         ConfigManager.plugin = this;
         ConfigManager.loadConfig();
+        try {
+            ConfigManager.initLogger();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         ConfigManager.start();
-        ConfigManager.initLogger();
         getServer().getPluginCommand("InventoryScanner").setExecutor(new Command());
     }
 
@@ -31,24 +38,24 @@ public final class InventoryScanner extends JavaPlugin {
     }
 
     public static String getItemStringID(ItemStack itemStack) {
-        StringBuilder stringBuilder = new StringBuilder();
-        NBTEditor.NBTCompound id1 = NBTEditor.getNBTCompound(itemStack, "id");
-        if (id1 == null) return itemStack.getType().toString().toLowerCase();
-        stringBuilder.append(id1);
-        NBTEditor.NBTCompound type = NBTEditor.getNBTCompound(itemStack, "tag", "type");
-        if (type != null && type.toString() != null) stringBuilder.append("_").append(type);
-        NBTEditor.NBTCompound damage = NBTEditor.getNBTCompound(itemStack, "Damage");
-        if (damage != null && !"0s".equals(damage.toString())) stringBuilder.append("_").append(damage);
-        return stringBuilder.toString().replace(":", "").replace("\"", "").replace("s", "");
+        StringBuilder builder = new StringBuilder(itemStack.getType().toString());
+        if (itemStack.hasItemMeta()) {
+            ItemMeta itemMeta = itemStack.getItemMeta();
+            if (itemMeta.hasDisplayName())
+                builder.append('_').append(itemMeta.getDisplayName());
+        }
+        short durability = itemStack.getDurability();
+        if (durability > 0) builder.append(':').append(durability);
+        return builder.toString();
     }
 
     public static String serialize(ItemStack itemStack) {
-        return NBTLibraryMain.libraryApi.getSerializeItem().serialize(itemStack);
+        return NBT.itemStackToNBT(itemStack).toString();
     }
 
     public static ItemStack deserialize(String string) {
         try {
-            return NBTLibraryMain.libraryApi.getSerializeItem().deserialize(string);
+            return NBT.itemStackFromNBT(NBT.parseNBT(string));
         } catch (Exception e) {
             return null;
         }

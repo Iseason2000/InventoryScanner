@@ -87,20 +87,24 @@ public class Command implements CommandExecutor, TabCompleter {
             return true;
         }
         if ("get".equals(args[0])) {
-            if (!(sender instanceof Player)) {
-                sender.sendMessage(ChatColor.RED + "该命令只能玩家使用");
+            if (args.length < 2) {
+                sender.sendMessage(ChatColor.RED + "请输入玩家名称");
                 return true;
             }
-            if (args.length != 2) {
+            Player player = Bukkit.getPlayerExact(args[1]);
+            if (player == null) {
+                sender.sendMessage(ChatColor.RED + "玩家不存在或不在线");
+                return true;
+            }
+            if (args.length != 3) {
                 sender.sendMessage(ChatColor.YELLOW + "请输入物品键");
                 return true;
             }
-            ItemStack itemFromKey = ConfigManager.getItemFromKey(args[1]);
+            ItemStack itemFromKey = ConfigManager.getItemFromKey(args[2]);
             if (itemFromKey == null) {
                 sender.sendMessage(ChatColor.YELLOW + "物品键不存在");
                 return true;
             }
-            Player player = (Player) sender;
             HashMap<Integer, ItemStack> m = player.getInventory().addItem(itemFromKey);
             if (!m.isEmpty()) {
                 sender.sendMessage(ChatColor.YELLOW + "物品已经满");

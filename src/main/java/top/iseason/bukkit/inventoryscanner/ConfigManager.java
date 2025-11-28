@@ -3,6 +3,7 @@ package top.iseason.bukkit.inventoryscanner;
 import lombok.Getter;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -11,13 +12,16 @@ import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.io.*;
-import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
+import java.util.logging.FileHandler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 public class ConfigManager {
     @Getter
@@ -35,10 +39,29 @@ public class ConfigManager {
     private static String warningMessage = "";
     @Getter
     static long warningCoolDown = 200L;
-    private static File logger = null;
 
-    public static void initLogger() {
-        logger = new File(plugin.getDataFolder(), "日志.log");
+    public static String logPath = null;
+    public static Integer fileSize = 1024;
+    public static Integer fileNum = 10;
+    public static boolean consoleSilent = false;
+    private static final Logger logger = Logger.getLogger(InventoryScanner.class.getName());
+
+    public static void initLogger() throws IOException {
+        new File(logPath).mkdirs();
+        FileHandler fileHandler = new FileHandler(logPath + "/log-%u.log", fileSize * 1024, fileNum, true);
+        fileHandler.setFormatter(new SimpleFormatter() {
+            private static final String format = "[%1$tF %1$tT] %2$s %n";
+
+            @Override
+            public synchronized String format(java.util.logging.LogRecord lr) {
+                return String.format(format,
+                        new java.util.Date(lr.getMillis()),
+                        lr.getMessage());
+            }
+        });
+        logger.setLevel(Level.INFO);
+        logger.addHandler(fileHandler);
+        logger.setUseParentHandlers(false); // 不使用全局处理器
     }
 
     public static void loadConfig() {
@@ -53,7 +76,10 @@ public class ConfigManager {
         message = config.getString("message", "");
         warningMessage = config.getString("warningMessage", "");
         warningCoolDown = config.getLong("warningCoolDown", 10000L);
-
+        logPath = config.getString("log-path", plugin.getDataFolder().toString() + "/logs");
+        consoleSilent = config.getBoolean("console-silent");
+        fileSize = config.getInt("file-size", fileSize);
+        fileNum = config.getInt("file-num", fileNum);
     }
 
     public static void stop() {
@@ -113,6 +139,8 @@ public class ConfigManager {
         ConfigurationSection k = config.getConfigurationSection("key-map");
         if (k == null) k = config.createSection("key-map");
         listener.getKeyMap().forEach(k::set);
+        config.set("log-path", logPath);
+        config.set("console-silent", consoleSilent);
         try {
             config.save(file);
         } catch (IOException e) {
@@ -159,7 +187,7 @@ public class ConfigManager {
                     count = (count != null) ? count + amount : amount;
                     temp.put(itemStringID, count);
                     //超过限额
-                    if (count >= threshold.getMax()) {
+                    if (threshold.getMax() >= 0 && count >= threshold.getMax()) {
                         //获取之前的索引
                         List<Integer> preIndexes = temp2.get(itemStringID);
                         if (preIndexes != null) {
@@ -185,6 +213,10 @@ public class ConfigManager {
                         Long aLong = coolDown.get(uniqueId);
                         long l = System.currentTimeMillis();
                         if (aLong != null && l - aLong < getWarningCoolDown()) return;
+
+                        String s = "玩家 " + onlinePlayer.getName() + " 触发黑名单预警 " + K + ChatColor.RESET + " 警告阈值 " + warning + " ，背包拥有的数量为 " + V + ",位置: " + formatLocation(onlinePlayer.getLocation());
+                        if (!consoleSilent) plugin.getLogger().info(s);
+                        logger.info(s);
                         String m = getWarningMessage();
                         if (!m.isEmpty()) {
                             coolDown.put(uniqueId, l);
@@ -196,34 +228,26 @@ public class ConfigManager {
                     if (!m.isEmpty()) {
                         onlinePlayer.sendMessage(ChatColor.translateAlternateColorCodes('&', m).replace("%item%", K).replace("%max%", String.valueOf(max)).replace("%current%", V.toString()));
                     }
-                    log("玩家 " + onlinePlayer.getName() + " 触发黑名单 " + K + " 阈值 " + max + " ，背包拥有的数量为 " + V + " ,位于: " + onlinePlayer.getLocation());
+                    String s = "玩家 " + onlinePlayer.getName() + " 触发黑名单 " + K + ChatColor.RESET + " 阈值 " + max + " ，背包拥有的数量为 " + V + ",位置: " + formatLocation(onlinePlayer.getLocation());
+                    if (!consoleSilent) plugin.getLogger().info(s);
+                    logger.info(s);
                 });
             }
         }
     }
 
-    public static void log(String content) {
-        plugin.getLogger().info(content);
-        try {
-            if (!logger.exists()) logger.createNewFile();
-        } catch (IOException ignored) {
-        }
-        try (BufferedWriter out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(logger, true), StandardCharsets.UTF_8))) {
-            out.write(LogFormatter.format(content));
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+    private static String formatLocation(Location loc) {
+        return loc.getWorld().getName() + ":" + loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ();
     }
-
-    private static class LogFormatter {
-        private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-
-        public static String format(String record) {
-            StringBuilder sb = new StringBuilder();
-            String dataFormat = sdf.format(System.currentTimeMillis());
-            sb.append("[").append(dataFormat).append("]").append(" ");
-            sb.append(record).append("\n");
-            return sb.toString();
-        }
-    }
+//    private static class LogFormatter {
+//        private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+//
+//        public static String format(String record) {
+//            StringBuilder sb = new StringBuilder();
+//            String dataFormat = sdf.format(System.currentTimeMillis());
+//            sb.append("[").append(dataFormat).append("]").append(" ");
+//            sb.append(record).append("\n");
+//            return sb.toString();
+//        }
+//    }
 }
